@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  ros2-web-monitor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - RWM_HOST=0.0.0.0
+      - RWM_PORT=8080
+      - RWM_CORS_ORIGINS=["*"]
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+    network_mode: host  # Required for ROS 2 DDS discovery
+    restart: unless-stopped
