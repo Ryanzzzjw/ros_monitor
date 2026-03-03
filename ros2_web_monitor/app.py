@@ -109,4 +109,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    # --- Config endpoint (expose non-sensitive settings to frontend) ---
+    @app.get("/api/v1/config")
+    async def config() -> dict[str, object]:
+        return {
+            "domain_id": settings.ros_domain_id,
+            "node_name": settings.ros_node_name,
+        }
+
     return app

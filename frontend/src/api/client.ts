@@ -60,4 +60,16 @@ export async function checkHealth(): Promise<boolean> {
   }
 }
 
+// --- Config API ---
+
+export interface AppConfig {
+  domain_id: number | null
+  node_name: string
+}
+
+export async function fetchConfig(): Promise<AppConfig> {
+  const response = await api.get<AppConfig>('/config')
+  return response.data
+}
+
 export default api

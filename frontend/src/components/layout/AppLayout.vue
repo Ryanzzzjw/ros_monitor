@@ -1,65 +1,66 @@
 <script setup lang="ts">
-import { NLayout, NLayoutSider, NLayoutContent, NMenu, NIcon, NBadge } from 'naive-ui'
-import { h, computed } from 'vue'
-import { RouterView, useRouter, useRoute } from 'vue-router'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { RouterView } from 'vue-router'
+import { useRosApi } from '@/composables/useRosApi'
 import { useConnectionStore } from '@/stores/connection'
+import { useTopicsStore } from '@/stores/topics'
+import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
+import AppSidebar from './AppSidebar.vue'
+import AppHeader from './AppHeader.vue'
+import SearchModal from '@/components/common/SearchModal.vue'
 
-const router = useRouter()
-const route = useRoute()
 const connectionStore = useConnectionStore()
+const topicsStore = useTopicsStore()
+const { startAllPolling, stopAllPolling } = useRosApi()
 
-const menuOptions = [
+const sidebarCollapsed = ref(false)
+const showSearch = ref(false)
+
+// Global keyboard shortcuts
+useKeyboardShortcuts([
   {
-    label: 'Dashboard',
-    key: 'dashboard',
-    icon: () => h('span', { style: 'font-size: 18px' }, '📊')
+    key: 'k',
+    ctrl: true,
+    handler: () => { showSearch.value = !showSearch.value },
   },
   {
-    label: 'Nodes',
-    key: 'nodes',
-    icon: () => h('span', { style: 'font-size: 18px' }, '🔗')
+    key: 'Escape',
+    handler: () => { showSearch.value = false },
   },
   {
-    label: 'Topics',
-    key: 'topics',
-    icon: () => h('span', { style: 'font-size: 18px' }, '📨')
-  }
-]
+    key: ' ',
+    handler: () => { topicsStore.togglePause() },
+    prevent: true,
+  },
+])
 
-const activeKey = computed(() => route.name as string)
+onMounted(() => {
+  connectionStore.loadConfig()
+  startAllPolling()
+})
 
-function handleMenuUpdate(key: string) {
-  router.push({ name: key })
-}
+onUnmounted(() => {
+  stopAllPolling()
+})
 </script>
 
 <template>
-  <NLayout has-sider style="min-height: 100vh">
-    <NLayoutSider
-      bordered
-      collapse-mode="width"
-      :collapsed-width="64"
-      :width="200"
-      show-trigger
-      style="background: var(--n-color)"
-    >
-      <div style="padding: 16px; text-align: center; font-weight: bold; font-size: 16px;">
-        ROS 2 Monitor
-      </div>
-      <NMenu
-        :options="menuOptions"
-        :value="activeKey"
-        @update:value="handleMenuUpdate"
-      />
-      <div style="position: absolute; bottom: 16px; left: 16px; right: 16px; text-align: center;">
-        <NBadge
-          :type="connectionStore.backendConnected ? 'success' : 'error'"
-          :value="connectionStore.backendConnected ? 'Connected' : 'Disconnected'"
-        />
-      </div>
-    </NLayoutSider>
-    <NLayoutContent style="padding: 24px;">
-      <RouterView />
-    </NLayoutContent>
-  </NLayout>
+  <div class="flex h-screen overflow-hidden bg-bg">
+    <!-- Sidebar -->
+    <AppSidebar v-model:collapsed="sidebarCollapsed" />
+
+    <!-- Main area -->
+    <div class="flex flex-col flex-1 min-w-0">
+      <!-- Header -->
+      <AppHeader @open-search="showSearch = true" />
+
+      <!-- Content -->
+      <main class="flex-1 overflow-auto p-6">
+        <RouterView />
+      </main>
+    </div>
+
+    <!-- Search modal -->
+    <SearchModal v-model:show="showSearch" />
+  </div>
 </template>

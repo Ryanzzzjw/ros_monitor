@@ -107,3 +107,19 @@ export interface WSAckPayload {
 
 /** WebSocket connection state */
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error'
+
+/** Stream message for virtual scroll display */
+export interface StreamMessage {
+  id: number
+  seq: number
+  timestamp: number
+  data: WSDataPayload
+  /** Pre-serialized JSON string for display */
+  preview: string
+}
+
+/** Frequency data point for charts */
+export interface FrequencyDataPoint {
+  time: number
+  hz: number
+}

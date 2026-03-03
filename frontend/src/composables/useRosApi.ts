@@ -24,7 +24,7 @@ export function useRosApi() {
 
   // Health check polling (5s interval)
   const healthPolling = usePolling(
-    () => connectionStore.checkBackendHealth(),
+    async () => { await connectionStore.checkBackendHealth() },
     5000,
     { immediate: false }
   )
