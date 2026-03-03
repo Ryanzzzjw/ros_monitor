@@ -36,3 +36,12 @@ async def get_node_detail(
     if not namespace.startswith("/"):
         namespace = f"/{namespace}"
     return service.get_node_detail(namespace, node_name)
+
+
+@router.get("/{node_name}", response_model=NodeDetail)
+async def get_root_node_detail(
+    node_name: str,
+    service: NodeService = Depends(_get_service),
+) -> NodeDetail:
+    """Get node detail for root namespace nodes (e.g. /talker)."""
+    return service.get_node_detail("/", node_name)

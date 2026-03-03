@@ -23,9 +23,12 @@ export async function fetchNodes(): Promise<NodeListResponse> {
 }
 
 export async function fetchNodeDetail(namespace: string, nodeName: string): Promise<NodeDetail> {
-  // Remove leading slash from namespace for URL
-  const ns = namespace.startsWith('/') ? namespace.slice(1) : namespace
-  const response = await api.get<NodeDetail>(`/nodes/${ns}/${nodeName}`)
+  // Root namespace "/" uses shorthand route: /nodes/{nodeName}
+  const trimmedNs = namespace.replace(/^\/+|\/+$/g, '')
+  const path = trimmedNs
+    ? `/nodes/${trimmedNs}/${nodeName}`
+    : `/nodes/${nodeName}`
+  const response = await api.get<NodeDetail>(path)
   return response.data
 }
 

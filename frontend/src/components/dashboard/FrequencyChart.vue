@@ -1,73 +1,33 @@
 <script setup lang="ts">
-import { computed, ref, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useTopicsStore } from '@/stores/topics'
-import { fetchTopicStats } from '@/api/client'
 
 use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
 const topicsStore = useTopicsStore()
 
-const MAX_POINTS = 30
-const topN = 5
-
-interface FreqDataPoint {
-  time: string
-  values: Record<string, number>
-}
-
-const history = ref<FreqDataPoint[]>([])
-const trackedTopics = ref<string[]>([])
-
-// Poll top-N topics for stats every 2s
-let pollTimer: ReturnType<typeof setInterval> | null = null
-
-async function pollStats() {
-  const topics = topicsStore.topics.slice(0, topN)
-  const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-
-  const values: Record<string, number> = {}
-  const names: string[] = []
-
-  for (const t of topics) {
-    try {
-      const stats = await fetchTopicStats(t.name)
-      values[t.name] = Math.round(stats.rate_hz * 10) / 10
-      names.push(t.name)
-    } catch {
-      values[t.name] = 0
-      names.push(t.name)
-    }
-  }
-
-  trackedTopics.value = names
-  history.value.push({ time: now, values })
-  if (history.value.length > MAX_POINTS) {
-    history.value.shift()
-  }
-}
-
-pollTimer = setInterval(pollStats, 2000)
-pollStats()
-
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
-})
+const currentTopic = computed(() => topicsStore.latestStats?.topic ?? '')
 
 const chartOption = computed(() => {
-  const times = history.value.map(p => p.time)
-  const series = trackedTopics.value.map(name => ({
-    name: name.length > 20 ? '...' + name.slice(-18) : name,
-    type: 'line' as const,
-    smooth: true,
-    showSymbol: false,
-    lineStyle: { width: 2 },
-    data: history.value.map(p => p.values[name] ?? 0),
-  }))
+  const history = topicsStore.statsHistory
+  const times = history.map((p) => {
+    const d = new Date(p.time)
+    return d.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  })
+  const values = history.map((p) => Math.round(p.hz * 10) / 10)
+  const seriesName = currentTopic.value
+    ? (currentTopic.value.length > 20 ? `...${currentTopic.value.slice(-18)}` : currentTopic.value)
+    : 'Active Topic'
 
   return {
     backgroundColor: 'transparent',
@@ -79,7 +39,7 @@ const chartOption = computed(() => {
       textStyle: { color: '#e2e8f0', fontSize: 12 },
     },
     legend: {
-      show: trackedTopics.value.length > 0,
+      show: history.length > 0,
       bottom: 0,
       textStyle: { color: '#94a3b8', fontSize: 10 },
       itemWidth: 12,
@@ -100,22 +60,29 @@ const chartOption = computed(() => {
       axisLine: { show: false },
       splitLine: { lineStyle: { color: '#252d3a', type: 'dashed' } },
     },
-    series,
+    series: [{
+      name: seriesName,
+      type: 'line' as const,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 2 },
+      data: values,
+    }],
   }
 })
 </script>
 
 <template>
   <div class="bg-surface border border-surface-border rounded-lg p-4">
-    <h3 class="text-sm font-medium text-text-secondary mb-3">Topic Frequency (Top {{ topN }})</h3>
+    <h3 class="text-sm font-medium text-text-secondary mb-3">Topic Frequency (Active Stream)</h3>
     <VChart
-      v-if="trackedTopics.length > 0"
+      v-if="topicsStore.statsHistory.length > 1"
       :option="chartOption"
       :autoresize="true"
       style="height: 240px;"
     />
     <div v-else class="flex items-center justify-center h-60 text-text-muted text-sm">
-      No topic data available
+      Connect to a topic stream to view frequency data
     </div>
   </div>
 </template>

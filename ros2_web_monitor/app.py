@@ -7,10 +7,9 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-import rclpy
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from rclpy.context import Context
 
 from ros2_web_monitor.config import Settings
 from ros2_web_monitor.core.dependencies import (
@@ -32,26 +31,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings = Settings()
 
     # Shared state created here, stored in app.state for lifecycle management
-    ros_executor = ROSExecutor()
     plugin_registry = PluginRegistry()
+    ros_executor: ROSExecutor | None = None
+    sub_manager: SubscriptionManager | None = None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         """Manage application lifecycle: startup and shutdown."""
+        nonlocal ros_executor, sub_manager
+
         # --- Startup ---
         logger.info("Starting ROS 2 Web Monitor...")
 
-        # 1. Initialize rclpy (must be done before creating any nodes)
-        if not rclpy.ok():
-            rclpy.init()
+        # 1. Create isolated ROS context for this app lifecycle
+        ros_context = Context()
+        if settings.ros_domain_id is None:
+            ros_context.init(args=None)
+        else:
+            ros_context.init(args=None, domain_id=settings.ros_domain_id)
 
         # 2. Create MonitorNode
         monitor_node = MonitorNode(
             settings.ros_node_name,
+            context=ros_context,
             domain_id=settings.ros_domain_id,
         )
 
         # 3. Start ROS executor in background thread
+        ros_executor = ROSExecutor(context=ros_context)
         ros_executor.start([monitor_node])
 
         # 4. Create SubscriptionManager (needs asyncio event loop)
@@ -80,10 +87,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         plugin_registry.shutdown_all()
 
         # 2. Destroy all rclpy subscriptions
-        sub_manager.shutdown()
+        if sub_manager is not None:
+            sub_manager.shutdown()
 
         # 3. Stop executor spin loop and join background thread
-        ros_executor.shutdown()
+        if ros_executor is not None:
+            ros_executor.shutdown()
 
         logger.info("ROS 2 Web Monitor shutdown complete")
 

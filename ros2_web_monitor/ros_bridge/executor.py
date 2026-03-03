@@ -10,6 +10,7 @@ import rclpy
 from rclpy.executors import SingleThreadedExecutor
 
 if TYPE_CHECKING:
+    from rclpy.context import Context
     from rclpy.node import Node
 
 logger = logging.getLogger(__name__)
@@ -22,17 +23,16 @@ class ROSExecutor:
     Background thread: rclpy SingleThreadedExecutor.spin()
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, context: Context | None = None) -> None:
         self._executor: SingleThreadedExecutor | None = None
         self._thread: threading.Thread | None = None
         self._shutdown_event = threading.Event()
+        self._context = context
 
     def start(self, nodes: list[Node]) -> None:
         """Initialize rclpy, add nodes, and start the spin thread."""
-        if not rclpy.ok():
-            rclpy.init()
-
-        self._executor = SingleThreadedExecutor()
+        self._shutdown_event.clear()
+        self._executor = SingleThreadedExecutor(context=self._context)
         for node in nodes:
             self._executor.add_node(node)
 
@@ -69,7 +69,9 @@ class ROSExecutor:
             self._executor.shutdown()
             self._executor = None
 
-        if rclpy.ok():
+        if self._context is not None and self._context.ok():
+            self._context.shutdown()
+        elif rclpy.ok():
             rclpy.shutdown()
 
         logger.info("ROS executor shutdown complete")

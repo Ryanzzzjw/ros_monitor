@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
-import threading
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rclpy.node import Node
+
+if TYPE_CHECKING:
+    from rclpy.context import Context
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +22,18 @@ class MonitorNode(Node):
     on supported distros (Humble/Jazzy).
     """
 
-    def __init__(self, node_name: str, *, domain_id: int | None = None) -> None:
+    def __init__(
+        self,
+        node_name: str,
+        *,
+        context: Context | None = None,
+        domain_id: int | None = None,
+    ) -> None:
         kwargs: dict[str, Any] = {}
-        if domain_id is not None:
-            from rclpy.context import Context
-            ctx = Context()
-            ctx.init(args=None, domain_id=domain_id)
-            kwargs["context"] = ctx
+        if context is not None:
+            kwargs["context"] = context
 
         super().__init__(node_name, **kwargs)
-        self._lock = threading.Lock()
         logger.info("MonitorNode '%s' created (domain_id=%s)", node_name, domain_id)
 
     def get_node_names_with_namespaces(self) -> list[tuple[str, str]]:

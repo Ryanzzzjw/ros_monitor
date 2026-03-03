@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NTag, NSpin } from 'naive-ui'
-import { ArrowUpRight, ArrowDownLeft, Wrench, Plug } from 'lucide-vue-next'
+import { ArrowUpRight, ArrowDownLeft, Wrench, Plug, Server } from 'lucide-vue-next'
 import { useNodesStore } from '@/stores/nodes'
 
 const nodesStore = useNodesStore()
